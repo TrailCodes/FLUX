@@ -1,4 +1,4 @@
-import FLUX.FLUX as FLUX
+import FLUX
 
 while True:
     text = input('FLUX > ')
