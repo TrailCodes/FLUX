@@ -1,4 +1,12 @@
 ############################################################################################
+# IMPORTS
+############################################################################################
+
+from string_with_arrows import *
+
+
+
+############################################################################################
 # CONSTANTS
 ############################################################################################
 
@@ -18,11 +26,16 @@ class Error:
     def as_string(self):
         result = f'{self.error_name}:{self.details}'
         result += f'File {self.pos_start.fn},line{self.pos_start.ln + 1}'
+        result += '\n\n' + string_with_arrows(self.pos_start.ftxt,self.pos_start, self.pos_end)
         return result
 
 class IllegalCharError(Error):
     def __init__(self,pos_start,pos_end, details):
         super().__init__(pos_start,pos_end,'ILLEGAL CHARACTER', details)
+
+class IllegalSyntaxError(Error):
+    def __init__(self,pos_start,pos_end, details):
+        super().__init__(pos_start,pos_end,'ILLEGAL Syntax', details)
 
 ############################################################################################
 # POSITION
@@ -63,9 +76,18 @@ TT_RPAREN = 'RPAREN'
 
 
 class Token:
-    def __init__(self,type_,value = None):
+    def __init__(self,type_,value = None, pos_start = None ,pos_end = None):
         self.type = type_
         self.value = value
+
+        if pos_start:
+            self.pos_start = pos_start.copy()
+            self.pos_end = pos_start.copy()
+            self.pos_end.advance()
+
+        if pos_end:
+            self.pos_start = pos_end
+
 
     def __repr__(self):
         if self.value : return f'{self.type}:{self.value}'
@@ -170,6 +192,29 @@ class BinOpNode :
     
 
 ############################################################################################
+# PARSER RESULT
+############################################################################################
+
+class ParseResult:
+    def __init__(self):
+        self.error = None
+        self.node = None
+
+    def register(self, res):
+        if isinstance(res, ParseResult):
+            if res.error: self.error = res.error
+            return res.error
+        
+        return res
+    def success(self ,node):
+        self.node = node
+        return self
+
+    def failure(self,error):
+        self.error = error
+        return self
+
+############################################################################################
 # PARSER
 ############################################################################################
 
@@ -192,12 +237,15 @@ class Parser:
         return res
 
     def factor(self):
+        res = ParseResult()
         tok = self.current_tok
 
         if tok.type in (TT_INT,TT_FLOAT):
-            self.advance()
-            return NumberNode(tok)
+            res.register(self.advance())
+            return res.success(NumberNode(tok))
         
+        return res.failure
+
     def term(self):
         return self.bin_op(self.factor, (TT_MUL, TT_DIV))
     
